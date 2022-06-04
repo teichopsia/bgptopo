@@ -1,0 +1,10 @@
+import dot_parser
+import io
+with io.open('selected','rt',encoding=None) as f:
+  t=f.read()
+
+#import pdb
+#pdb.set_trace()
+load=dot_parser.parse_dot_data(t)
+from pprint import pprint as ddx
+ddx(load[0].obj_dict['nodes'])

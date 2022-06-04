@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+
+import anytree
+import sys
+import re
+import socket
+import struct
+
+def dict2tree(this):
+    def build(s,t):
+        for a,b in t.items():
+            if b:
+                build(anytree.AnyNode(d=a,parent=s),b)
+            else:
+                anytree.AnyNode(d=a,parent=s)
+        return s
+    first=list(this)[0]
+    r=anytree.AnyNode(d=first)
+    return build(r,this[first])
+
+def showpath(k,ml=None):
+    if ml==0:
+        ml=None
+    if not isinstance(k,dict):
+        return
+    k=dict2tree(k)
+    p=[]
+    d=0
+    lp=prefix=None
+    '''
+│   └── 32066
+│       └── 8220
+│           ├── 3267
+│           │   └── 3277
+│           ├── 1299
+│           │   ├── 8283
+│           │   └── 3491
+│           │       └── 3491
+│           │           └── 24441
+│           ├── 3303
+│           ├── 4637
+│           │   └── 1221
+│           ├── 3491
+│           │   └── 57866
+│           ├── 3356
+│           │   ├── 7018
+│           │   ├── 3257
+│           │   │   ├── 53767
+│           │   │   ├── 19214
+│           │   │   └── 286
+│           │   ├── 3910
+│           │   │   └── 3561
+│           │   ├── 3549
+│           │   └── 701
+│           ├── 20912
+│           ├── 2497
+│           ├── 6939
+│           │   └── 1351
+│           ├── 6079
+│           │   └── 4901
+│           ├── 2516
+│           │   └── 7660
+│           ├── 101
+│           ├── 852
+│           ├── 3333
+│           └── 12552
+│               └── 49788
+'''
+#                k,maxlevel=ml,childiter=lambda x:sorted(
+#                    x,key=lambda y:struct.unpack('!I',socket.inet_aton(y.d.split('/')[0]))
+    for pre,_,node in anytree.RenderTree(
+            k,maxlevel=ml,childiter=lambda x:sorted(x,key=lambda y:y.d)
+        ): #.by_attr('d'):
+        '''
+│       └── 8220
+│           ├── 3267
+│           │   └── 3277
+│           ├── 1299
+│           │   ├── 8283
+│           │   └── 3491
+'''
+        l=d                     #5
+        d=len(pre)//4           #4
+        if d ==0:
+            aggr=node.d
+        elif d==1:
+            prefix=node.d
+        elif d>1:
+            z=l-d+1
+            if lp!=prefix:
+                lp=prefix
+                p=[]
+                z=-1
+            for _ in range(z):
+                p.pop(-1)
+            for _ in range(-z):
+                if node.d=='49788':
+                    p.append(node.d+' '+str(d)+' '+str(l))
+                else:
+                    p.append(node.d)
+        if not node.children:
+            print('{} {} {}'.format(aggr,prefix,' '.join(p)))
+        
+def showtree(k,ml=None):
+    if ml==0:
+        ml=None
+    if isinstance(k,dict):
+        k=dict2tree(k)
+        print(anytree.RenderTree(
+                k,maxlevel=ml,childiter=lambda x:sorted(
+                    x,key=lambda y:struct.unpack('!I',socket.inet_aton(y.d.split('/')[0]))
+                )
+            ).by_attr('d')
+        )
+
+def ciscoparse(k):
+    z={}
+    for line in k:
+        r=re.search(r'show ip bgp\s(\S+)',line)
+        if r:
+            p=z.setdefault(r.group(1),{})
+        if line[0] in ('N','V','I'): #probably want to ingest all and flag bad instead?
+            pf,pt=line[5:5+17],line[63:]
+            aspath=list(reversed(pt.split()[0:-1]))
+            if len(pf) != pf.count(' '):
+                prefix=pf.strip()
+                n=p.setdefault(prefix,{})
+            a=n
+            for hop in aspath:
+                a=a.setdefault(hop,{})
+    return z
+
+def main():
+    showFull=True
+    with open(sys.argv[1],'rt') if len(sys.argv)>1 else sys.stdin as t:
+        if True:
+            root=ciscoparse(t)
+    if showFull:
+        showtree(root,8)
+        #showpath(root,8)
+    return 0
+
+if __name__=='__main__':
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        pass
